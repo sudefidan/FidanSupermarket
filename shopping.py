@@ -7,84 +7,9 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
-
-# Product Class
-class Product:
-    def __init__(self, name, price):
-        self.name = name
-        self.price = price
-        self.quantity = 0
-
-# Item List Class
-class ItemListPopup(Popup):
-    def __init__(self, catalog, **kwargs):
-        super(ItemListPopup, self).__init__(**kwargs)
-        self.title = 'Select Item'
-        self.size_hint = (None, None)
-        self.size = (min(Window.width * 0.8, 800),
-                     min(Window.height * 0.8, 600))
-
-        layout = BoxLayout(orientation='vertical', padding=10)
-
-        # Product Details
-        for product in catalog:
-            item_layout = BoxLayout(orientation='vertical', padding=10)
-
-            item_label = Label(
-                text='{} - £{}'.format(product.name, product.price))
-            item_layout.add_widget(item_label)
-
-            select_button = Button(text='Select')
-            select_button.bind(
-                on_press=lambda _,product=product: self.add_item_to_cart(product))
-            item_layout.add_widget(select_button)
-
-            layout.add_widget(item_layout)
-
-        self.content = layout
-
-    def add_item_to_cart(self, product):
-        self.dismiss()
-        App.get_running_app().add_item_to_cart(product)
-    
-
-
-class CheckoutPopup(Popup):
-    def __init__(self, **kwargs):
-        super(CheckoutPopup, self).__init__(**kwargs)
-        self.title = 'Checkout'
-        self.size_hint = (None, None)
-        self.size = (min(Window.width * 0.8, 600),
-                     min(Window.height * 0.8, 400))
-
-        layout = BoxLayout(orientation='vertical', padding=10)
-        layout.add_widget(Label(text='Enter Card Details'))
-
-        # Card Details Input
-        card_number = TextInput(multiline=False, hint_text='Card Number')
-        layout.add_widget(card_number)
-        card_expiry = TextInput(multiline=False, hint_text='Card Expiry')
-        layout.add_widget(card_expiry)
-        cvv = TextInput(multiline=False, hint_text='CVV')
-        layout.add_widget(cvv)
-
-        # Purhcase 
-        purchase_button = Button(text='Confirm Purchase')
-        purchase_button.bind(on_press=lambda x: self.purchase(
-            card_number.text, card_expiry.text, cvv.text))
-        layout.add_widget(purchase_button)
-
-        self.content = layout
-
-    def purchase(self, card_number, card_expiry, cvv):
-        # Check card details are entered
-        if card_number.strip() == '' or not card_number.isdigit() or card_expiry.strip() == '' or cvv.strip() == ''or not cvv.isdigit():
-            error_popup = Popup(title='Error', content=Label(
-                text='Please provide valid card details.'), size_hint=(None, None), size=(600, 400))
-            error_popup.open()
-        else:
-            self.dismiss()
-            App.get_running_app().purchase(card_number, card_expiry, cvv)
+from Entities.Product import Product
+from PopUps.ItemListPopup import ItemList
+from PopUps.CheckOutPopup import CheckOut
 
 class ShoppingApp(App):
     def build(self):
@@ -128,7 +53,7 @@ class ShoppingApp(App):
         return layout
 
     def show_item_list(self, instance):
-        popup = ItemListPopup(catalog=self.catalog)
+        popup = ItemList(catalog=self.catalog)
         popup.open()
 
     def add_item_to_cart(self, product):
@@ -139,6 +64,19 @@ class ShoppingApp(App):
                 return
         product.quantity = 1
         self.basket_items.append(product)
+        self.display_basket_items()
+    
+    def remove_item_from_cart(self, product):
+        # Find the item in the cart
+        for item in self.basket_items:
+            if item.name == product.name:
+                # Decrease the quantity
+                item.quantity -= 1
+                if item.quantity == 0:
+                    # Remove the item from the cart if the quantity becomes zero
+                    self.basket_items.remove(item)
+                break
+
         self.display_basket_items()
 
     def display_basket_items(self):
@@ -158,6 +96,11 @@ class ShoppingApp(App):
 
             total_price += item.price * item.quantity
 
+            remove_button = Button(text='Remove')
+            remove_button.bind(
+                on_press=lambda _, product=item: self.remove_item_from_cart(product))
+            item_layout.add_widget(remove_button)
+
             grid_layout.add_widget(item_layout)
 
 
@@ -169,7 +112,7 @@ class ShoppingApp(App):
 
     def show_checkout_page(self, instance):
         if len(self.basket_items) > 0:
-            popup = CheckoutPopup()
+            popup = CheckOut()
             popup.open()
         else:
             popup = Popup(title='Purchase Error', content=Label(
